@@ -1,0 +1,6 @@
+Revision history for Perl extension CGI::Application::Plugin::AuthRunmode.
+
+0.00_01  Fri Jan  8 00:40:43 2010
+	- original version; created by h2xs 1.23 with options
+		-AX -b 5.8.1 -B -n CGI::Application::Plugin::AuthRunmode --skip-exporter --skip-ppport --skip-autoloader
+

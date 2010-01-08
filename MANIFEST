@@ -1,0 +1,13 @@
+Changes
+lib/CGI/Application/Plugin/AuthRunmode.pm
+lib/CGI/Application/Plugin/AuthRunmode/Base.pm
+lib/CGI/Application/Plugin/AuthRunmode/Driver.pm
+lib/CGI/Application/Plugin/AuthRunmode/Dummy.pm
+lib/CGI/Application/Plugin/AuthRunmode/Generic.pm
+lib/CGI/Application/Plugin/AuthRunmode/OpenID.pm
+lib/CGI/Application/Plugin/AuthRunmode/Status.pm
+Makefile.PL
+MANIFEST
+README
+t/CGI-Application-Plugin-AuthRunmode.t
+META.yml                                 Module meta-data (added by MakeMaker)

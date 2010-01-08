@@ -1,0 +1,104 @@
+NAME
+    CGI::Application::Plugin::AuthRunmode - interrupt runmode by login
+    transparently
+
+SYNOPSIS
+        use base qw(CGI::Application);
+        use CGI::Application::Plugin::AuthRunmode;
+        use CGI::Application::Plugin::Forward;
+        use CGI::Application::Plugin::LogDispatch;
+        use CGI::Application::Plugin::Redirect;
+        use CGI::Application::Plugin::Session;
+    
+        sub cgiapp_init {
+            my $self = shift;
+            $self->authrm_config({
+                'driver' => [
+                    {
+                        'module' => 'Generic',
+                        'params' => {
+                            'valid_user'        => 'cgi',
+                            'valid_password'    => 'application',
+                            },
+                       },
+                    ],
+                'expire' => '+1h',
+                });
+    
+            # and pass value of status to login template
+            $self->add_callback('load_tmpl', sub {
+                my ($self, $ht_params, $tmpl_params, $tmpl_file) = @_;
+                if( $self->get_current_runmode eq $self->authrm->get_login_runmode ){
+                    $tmpl_params->{'login_status'} = $self->authrm->status->code;
+                }
+            });
+        }
+    
+        sub setup {
+            my $self = shift;
+            $self->start_mode('default');
+            $self->run_modes(
+                'default'   => \&rm_default,
+                'admin'     => \&rm_admin,
+                );
+            $self->authrm->add_protected_runmode(
+                'admin'
+                );
+        }
+
+DESCRIPTION
+    TODO
+
+Appending Runmods
+    login
+    logout
+Export Method
+    authrm_config
+    authrm
+Driver
+    Dummy
+        pass everybody.
+
+    Generic
+        using static values of user/pass in configuration.
+
+    Htpssword
+        TODO. using htpasswd file.
+
+    OpenID
+        using OpenID.
+
+Authenticate Status
+    See CGI::Application::Plugin::AuthRunmode::Status
+
+Hook
+    authrm::logging_in
+Dependence
+    Requires:
+
+        use 5.8.1;
+        use Class::Data::Inheritable;
+        use CGI::Application;
+        use CGI::Application::Plugin::Forward;
+        use CGI::Application::Plugin::LogDispatch;
+        use CGI::Application::Plugin::Redirect;
+        use CGI::Application::Plugin::Session;
+        use CGI::Application::Plugin::TT;
+        use UNIVERSAL::require;
+    
+    Optional, the driver CGI::Application::Plugin::AuthRunmode::OpenID
+    using:
+
+        use Net::OpenID::Consumer;
+        use LWP::UserAgent;
+
+SEE ALSO
+    CGI::Application
+
+AUTHOR
+    WATANABE Hiroaki, <hwat@mac.com>
+
+LICENSE
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
