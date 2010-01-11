@@ -1,0 +1,309 @@
+=head1 NAME
+
+CGI::Application::Plugin::AuthRunmode - interrupt runmode by login transparently
+
+=head1 SYNOPSIS
+
+    use base qw(CGI::Application);
+    use CGI::Application::Plugin::AuthRunmode;
+    use CGI::Application::Plugin::Forward;
+    use CGI::Application::Plugin::LogDispatch;
+    use CGI::Application::Plugin::Redirect;
+    use CGI::Application::Plugin::Session;
+    use CGI::Application::Plugin::TT;
+    
+    sub cgiapp_init {
+        my $self = shift;
+
+        $self->authrm_config({
+            'driver' => [
+                {
+                    'module' => 'Generic',
+                    'params' => {
+                        'valid_user'        => 'user',
+                        'valid_password'    => 'pass',
+                        },
+                   },
+                ],
+            'expire' => '+1h',
+            });
+    }
+    
+    sub setup {
+        my $self = shift;
+        $self->start_mode('default');
+        $self->run_modes(
+            'default'   => \&rm_default,
+            'admin'     => \&rm_admin,
+            );
+        $self->authrm->add_protected_runmode(
+            'admin'
+            );
+    }
+
+=head1 DESCRIPTION
+
+CGI::Application::Plugin::AuthRunmode は
+CGI::Application のための認証・承認フレームワークです。
+ただし承認については、現在は未実装です。が将来の構想の中にあります。
+
+CGI::Application での認証には、既に有名なプラグイン
+CGI::Application::Plugin::Authentication があります。
+CGI::Application::Plugin::AuthRunmode はこれを置き換えるものです。
+
+なぜ、今更それを置き換える必要があったのでしょうか。二つの大きな理由がありました。
+一つは、画面遷移にまつわる問題を解決するため、
+もう一つは、私の Perl のプラクティスであることです。
+その結果として、後発である優位性により、
+認証まわりをより簡潔に実装できるようになったような * 気もします * 。
+
+尤も、まだ全てを置き換えるには至っていません。
+目標は、完全に置き換えられるようにすることですが、
+現在のものでも用途によっては十分足りる機能を持っています。
+
+以下、パッケージ名 CGI::Application::Plugin を CAP と省略して記述します。
+
+=head2 Export Method
+
+CAP::AuthRunmode は、二つのメソッドを CGI::Application に提供します。
+authrm と authrm_config です。
+
+authrm がメインに用いられるインスタンス（を得るメソッド）で、
+殆どはそのインスタンスが仕事をします。
+しかし認証の処理は透過的に行われるため、
+このインスタンスを用いて開発者が行わなければならないことは殆どありません。
+
+authrm_config は初期化を行うために、設定パラメータを受け取ります。
+このときいちばん大事なことは、認証のメカニズムを選択し、
+そのパラメータを正しく設定することです。
+
+=head2 Driver
+
+開発者はメソッド authrm_config でこのプラグインを初期化をするときに、
+認証のメカニズム、即ちドライバ（ドライバ・モジュール）を選択します。
+
+具体的な認証の処理は、パラメータに応じて、ドライバ自身が行います。
+パラメータが適切であれば、開発者はほかにすべきことはありません。
+
+予め用意されているドライバは、現在のバージョンでは、
+Dummy, Generic および OpenID です。構想にはほかに HTPasswd があります。
+CAP::Authentication のラインナップには及びませんが、順次増やして行く予定です。
+また任意にドライバを書くこともできます。
+詳しくは CAP::AuthRunmode::Driver を参照して下さい。
+
+Dummy ドライバは、無条件に認証をパスします。開発時に有用です。
+Generic ドライバは、ドライバ設定パラメータに直接記述された
+平文のユーザ名とパスワードのペアで認証します。こちらも主には開発用です。
+そして OpenID ドライバは、その名のとおり OpenID で認証を行います。
+各ドライバの詳細は、それぞれのモジュールを参照して下さい。
+
+CAP::AuthRunmode の特徴として、ドライバは複数を同時にセットアップすることができます。
+たとえばドライバ Generic と OpenID をセットアップすると、
+エンドユーザがどちらかの認証方式を選択して利用することができます。
+
+=head2 Appending Runmods
+
+プラグインのセットアップの段階で、暗黙のうちにふたつのラン・モードが追加されます。
+ログインのための login と、ログアウトのための logout です。
+これらラン・モードの名称は変更することもできますが、変更する必要はありません。
+
+ページの内容はしかし、作成しておく必要があります。
+現在のバージョンでは、 Template-Toolkit のテンプレートである必要があります。
+
+利用するドライバによって、その内容は若干異なりますが、
+ポイントとなるのは HTML フォームの提出先が、
+* 常に * 呼び出そうとしているラン・モードと同じ URL であることです。
+CAP::AuthRunmode は、呼び出そうとしているラン・モードが保護されている場合に、
+透過的にログイン・ランモードを差し挟みます。
+ですからここは、自身の URL であることを表現します。
+
+    <form method="post" action="[% c.query.url %]">
+        ユーザ名　：
+        <input name="authrm_username" type="text" />
+        パスワード：
+        <input name="authrm_password" type="password" />
+
+        <input type="submit" value="ログイン" />
+
+    </form>
+
+上の例はドライバ Generic のためのフォームです。
+
+ドライバ Generic では、ユーザ名を authrm_username 、そしてパスワードを authrm_password という
+それぞれのパラメータを要求するので、それに応じてフォーム要素を記述します。
+
+また例えばドライバ OpenID であれば、次のパラメータだけが必要です。
+
+        OpenID:
+        <input name="openid_url" type="text" />
+
+また、複数のドライバをセットアップしたときは、
+ユーザからの入力があるパラメータに対応する、最初の認証ドライバが働きます。
+ドライバ Generic と OpenID を用いる場合は、フォームは次のようになるでしょう。
+
+    <form method="post" action="[% c.query.url %]">
+        ユーザ名　：
+        <input name="authrm_username" type="text" />
+        パスワード：
+        <input name="authrm_password" type="password" />
+
+        または
+
+        OpenID:
+        <input name="openid_url" type="text" />
+
+        <input type="submit" value="ログイン" />
+
+    </form>
+
+このとき、エンドユーザがパラメタ authrm_username または auturm_password の
+いずれかに入力を行えば、ドライバ Generic の認証が働きます。
+それらが空であれば、パラメタ openid_url によってドライバ OpenID での認証が働きます。
+
+パラメータ名はドライバの設定によって変更することができるようになっています。
+詳しくは各ドライバ・モジュールを参照して下さい。
+
+=head2 Protected Runmode
+
+セットアップの中では、あとはどのラン・モードを保護するかを決定します。
+これは CAP::Authentication のそれと同じです。
+
+直接的にラン・モードを指定できますし、正規表現で指定することもできます。
+
+=head2 Status
+
+ユーザがログインに失敗したとき、その理由をページに表示させることはしぜんな要求です。
+しかし CAP::AuthRunmode ではメッセージの内容については範疇の外であります。
+
+そのかわり CAP::AuthRunmode はログイン処理の正否を、
+ステータス・オブジェクト（ CAP::AuthRunmode::Status ）として返却します。
+ステータス・オブジェクトはログイン要求に対するその結果を
+HTTP で定義されているような３桁のコードで返します。
+つまり 200 番台は成功、400 番台はユーザによる失敗です。
+
+テンプレートのデザイナは、このコードをキーにして、
+任意に記述した具体的なメッセージを選択することができます。
+
+開発者がコードとメッセージの対応表を（設定ファイルから読み込むなどして）
+テンプレートに渡してもいいですし、
+次のようにログイン・テンプレートの中に埋め込んでしまってもいいでしょう。
+
+    [% SET login_message = {
+            '401' = 'ログインしてください。'
+            '403' = '認証に失敗しました。'
+        }
+    %]
+
+    [% SET login_status = c.authrm.status.code %]
+
+    [% IF login_message.$login_status %]
+        <p style="color:red;">[% login_message.$login_status %]</p>
+    [% END %]
+
+ステータスについて、詳しくは CAP::AuthRunmode::Status を参照して下さい。
+
+=head2 Hook
+
+認証のために働くドライバにはさまざまなものがあり、そのすべてが、
+入力パラメータ、結果として返却される値が、一貫したインタフェースに倣っているとは限りません。
+
+たとえばドライバ Generic や HTPasswd は、ユーザ名とパスワードを入力とし、結果はユーザ名です。
+
+たとえばもう一方、ドライバ OpenID は、 URL を入力とし、
+認証自体はほかのサイトで行われ、結果認証された URL を返します。
+そして、内部的な話になりますが、ドライバ OpenID のバックエンドである Net::OpenID::Consumer は、
+Net::OpenID::VerifiedIdentity オブジェクトを返却し、
+これには認証されたユーザの URL 以外にも、有益な情報を含んでいるかもしれません。
+
+またほかのドライバでは、その他の情報を一緒に得るものもあるでしょう。
+たとえばパスワードの有効期限など。
+
+こうした補助情報は、いったんログインの処理が終わった後に、
+再度取りに行ってもいいのかもしれません。
+ただ、ログインと同時に得られるならば、それに越したことはありません。
+
+そのようなことを考慮し、 CAP::AuthRunmode では、
+認証が成功した直後に設けられたフックポイント "authrm::logging_in" にコールバックを設定することで
+付随した情報を取り出すことができるようになっています。
+
+次の例は、ドライバ OpenID を想定したときのものです。
+拡張情報としての nickname を取り出し、セッションに格納しています。
+
+    $self->add_callback('authrm::logging_in', sub {
+        my $app     = shift;    # CGI::Application
+        my $driver  = shift;    # CGI::Application::Plugin::AuthRunmode::Driver
+        my $user    = shift;    # verified user name (or identifier)
+        my @extra   = @_;       # extra arguments
+
+        my $nickname    = 'anonymous';
+        my $driver_name = ref( $driver ) || '';
+        if( $driver_name eq 'CGI::Application::Plugin::AuthRunmode::OpenID' ){
+
+            my $verified_identity = shift @extra;
+            my $fields = $verified_identity
+                            ->extension_fields(
+                                'http://openid.net/extensions/sreg/1.1'
+                                );
+        
+            $app->authrm->set_login_user_info('nickname', $fields->{'nickname'})
+                if( $fields->{'nickname'} );
+            
+
+        }else{
+            Carp::croak("it doesn't correspond to the authrm module $driver_name");
+        }
+
+    });
+
+コールバック・ルーチンに渡される引数は、最初の三つは決まっています。
+CGI::Application のインスタンス、 CAP::AuthRunmode::Driver のインスタンス、そして認証したユーザ名です。
+
+ユーザ名のところについては、ドライバによって認証されたユーザをあらわす文字列になります。
+ドライバ Generic であれば、入力したユーザ名であり、それがその認証システムの中で一意なユーザです。
+ドライバ OpenID であれば、認証された URL です。これは入力した URL とは異なる場合があります。
+
+なお複数のドライバを利用する場合は、複数の認証システムの間での一意性が保証されていなければならないでしょう。
+そのことについては、現在のバージョンでは課題になっています。
+どの認証システムで認証したかの情報を、どこかに持たせることになるでしょう。
+
+そして引数の四つ目以降のリストが、各ドライバによって異なります。
+ドライバによっては undef かもしれません。いずれにしても、ドライバに一任されますが、
+開発者は利用するドライバを選択するときに、そのドライバが返却する値を確認しておくことになるでしょう。
+
+=head1 Dependence
+
+Perl のバージョンは最低で 5.8.1 を要求します。
+
+    use 5.8.1;
+
+そして、現在のバージョンでは、次のモジュールを必要としています。
+いずれもコンパイル不要なので、レンタル・サーバなどでシェルが使えない環境でも利用できます。
+
+    use Class::Data::Inheritable;
+    use CGI::Application;
+    use CGI::Application::Plugin::Forward;
+    use CGI::Application::Plugin::LogDispatch;
+    use CGI::Application::Plugin::Redirect;
+    use CGI::Application::Plugin::Session;
+    use CGI::Application::Plugin::TT;
+    use UNIVERSAL::require;
+
+ドライバ OpenID を利用する場合は、次のモジュールを必要とします。
+
+    use Net::OpenID::Consumer;
+    use LWP::UserAgent;
+
+=head1 SEE ALSO
+
+L<CGI::Application>
+
+=head1 AUTHOR
+
+WATANABE Hiroaki, E<lt>hwat@mac.comE<gt>
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut

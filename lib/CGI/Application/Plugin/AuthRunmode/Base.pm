@@ -122,24 +122,28 @@ sub _handler_prerun {
 
     my $rm = $app->get_current_runmode;
     my $prerun_mode = $rm;
-    if( ! $app->authrm->is_protected_runmode or $app->authrm->is_logged_in ){
-        $app->authrm->clear_suspending;
-        $app->authrm->clear_login_attempts;
+    if( ! $app->authrm->is_protected_runmode ){
+        $app->authrm->_clear_suspending;
     }else{
-        $app->log->debug("in protected runmode [$rm], then it requires login");
-
-        if( $app->authrm->args->{'deny_direct_login_runmode'} and $app->session->is_new ){
-            $app->log->debug("humm... session is new. change rm to 'default' because 'login' does not allow direct access, or timeout");
-            $prerun_mode = $app->authrm->get_default_runmode;
+        if( $app->authrm->is_logged_in ){
+            $app->authrm->_resume_runmode;
+            $app->authrm->_clear_suspending;
         }else{
-            if( $app->authrm->suspending_runmode ){
-                $app->log->debug("rm [".$app->authrm->suspending_runmode."] was suspending");
+            $app->log->debug("in protected runmode [$rm], then it requires login");
+    
+            if( $app->authrm->args->{'deny_direct_login_runmode'} and $app->session->is_new ){
+                $app->log->debug("humm... session is new. change rm to 'default' because 'login' does not allow direct access, or timeout");
+                $prerun_mode = $app->authrm->get_default_runmode;
             }else{
-                $app->authrm->suspend_runmode;
-                $app->log->debug("rm [$rm] with query was suspended");
+                if( $app->authrm->suspending_runmode ){
+                    $app->log->debug("rm [".$app->authrm->suspending_runmode."] was suspending");
+                }else{
+                    $app->authrm->suspend_runmode;
+                    $app->log->debug("rm [$rm] with query was suspended");
+                }
+                $app->log->debug("change rm to 'login' for protected rm [".$app->authrm->suspending_runmode."]");
+                $prerun_mode = $app->authrm->get_login_runmode;
             }
-            $app->log->debug("change rm to 'login' for protected rm [".$app->authrm->suspending_runmode."]");
-            $prerun_mode = $app->authrm->get_login_runmode;
         }
     }
     $app->prerun_mode($prerun_mode);
@@ -159,8 +163,16 @@ sub rm_login {
     }else{
         if( Scalar::Util::blessed( $result ) and $result->isa(__PACKAGE__) ){
             if( $result->status->is_success ){
-                return $result->resume_runmode;
+                $app->authrm->_clear_login_attempts;
+
+                if( uc $app->authrm->suspending_query->request_method eq 'POST' ){
+                     $app->redirect( $app->authrm->suspending_query->url(-path=>1) );
+                }else{
+                     $app->redirect( $app->authrm->suspending_query->url(-path=>1,-query=>1) );
+                }
+                return;
             }else{
+                $app->authrm->_increment_login_attempts;
                 return $app->tt_process( $app->authrm->get_login_template );
             }
         }else{
@@ -188,11 +200,14 @@ sub suspending_runmode {
     shift->app->session->param($Constants{'param_suspending_runmode'});
 }
 
-sub resume_runmode {
+sub suspending_query {
+    shift->app->session->param($Constants{'param_suspending_query'});
+}
+
+sub _resume_runmode {
     my $self = shift;
     my $back_to = $self->app->session->param($Constants{'param_suspending_runmode'});
     $self->app->query($self->app->session->param($Constants{'param_suspending_query'}));
-    $self->clear_suspending;
     if( ! defined $back_to or $back_to eq $self->get_login_runmode ){
         $self->app->log->debug("change rm from 'login' to 'default' because direct access to 'login'");
         $back_to = $self->get_default_runmode;
@@ -201,7 +216,7 @@ sub resume_runmode {
     return $self->app->forward( $back_to );
 }
 
-sub clear_suspending {
+sub _clear_suspending {
     my $self = shift;
     $self->app->session->clear([$Constants{'param_suspending_runmode'},$Constants{'param_suspending_query'}]);
 }
@@ -238,8 +253,6 @@ sub logging_in {
     my $authobj = shift;
     my $user_id = shift;
     my @extra_args = @_;
-
-    $self->clear_login_attempts;
 
     # This can be useful to protect against some login attacks 
     # when storing authentication tokens in the session
@@ -283,13 +296,13 @@ sub get_login_attempts {
     shift->app->session->param($Constants{'param_auth_attempts'});
 }
 
-sub increment_login_attempts {
+sub _increment_login_attempts {
     my $self = shift;
     my $attempts = $self->app->session->param($Constants{'param_auth_attempts'}) || 0;
     $self->app->session->param($Constants{'param_auth_attempts'},++$attempts);
 }
 
-sub clear_login_attempts {
+sub _clear_login_attempts {
     shift->app->session->clear($Constants{'param_auth_attempts'});
 }
 

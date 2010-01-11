@@ -7,10 +7,17 @@ use warnings;
 use vars qw($VERSION);
 $VERSION = '0.01';
 
-use CGI::Application::Plugin::AuthRunmode::Status;
-use LWP::UserAgent;
-use Net::OpenID::Consumer;
 use base qw(CGI::Application::Plugin::AuthRunmode::Driver);
+use CGI::Application::Plugin::AuthRunmode::Status;
+use Net::OpenID::Consumer;
+use UNIVERSAL::require;
+
+sub new {
+    my $class = shift;
+    my $self = $class->SUPER::new(@_);
+    $self->authrm->app->new_hook('authrm::driver::openid::setup_consumer');
+    return $self;
+}
 
 sub authenticate {
     my $self            = shift;
@@ -29,23 +36,30 @@ sub authenticate {
 
     }else{
 
+        my $ua_module = 'LWP::UserAgent';
+        my $ua_params = {};
+        if( exists $driver_params->{'agent'} and exists $driver_params->{'agent'} ){
+            $ua_module = $driver_params->{'agent'}->{'module'};
+            $ua_params = $driver_params->{'agent'}->{'params'} || {};
+        }
+        my $ua = $ua_module->new( %$ua_params );
         my $csr = Net::OpenID::Consumer->new(
-            'ua'                => LWP::UserAgent->new,
+            'ua'                => $ua,
             'args'              => $authrm->app->query,
             'consumer_secret'   => $driver_params->{'consumer_secret'},
             'required_root'     => $driver_params->{'required_root'},
             );
+        $authrm->app->call_hook('authrm::driver::openid::setup_consumer', $csr );
+        $authrm->app->log->debug("Net::OpenID::Consumer has UA: ${\$csr->ua}");
 
         if( $openid_url ){
     
             if( my $claimed_identity = $csr->claimed_identity( $openid_url ) ){
-            
-                $claimed_identity->set_extension_args(
-                    'http://openid.net/extensions/sreg/1.1',
-                    {
-                        'optional' => 'nickname',
-                    },
-                );
+
+                if( exists $driver_params->{'extension_args'} ){
+                    $authrm->app->log->debug("set extension args: [@{ $driver_params->{'extension_args'} }]");
+                    $claimed_identity->set_extension_args( @{ $driver_params->{'extension_args'} } );
+                }
 
                 my $check_url = $claimed_identity->check_url(
                                     'return_to'  => $authrm->app->query->url(-path_info=>1,-query=>1),
@@ -81,8 +95,6 @@ sub authenticate {
                 'cancelled' => sub {
                         $authrm->app->log->info("$msg cancelled");
 
-                        $authrm->increment_login_attempts;
-
                         $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('407'));
                         return $authrm;
                     },
@@ -98,8 +110,6 @@ sub authenticate {
                 'error' => sub {
                         my $err = shift;
                         $authrm->app->log->error("$msg error: $err");
-
-                        $authrm->increment_login_attempts;
 
                         $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('502'));
                         return $authrm;
