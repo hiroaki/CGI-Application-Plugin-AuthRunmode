@@ -18,14 +18,12 @@ CGI::Application::Plugin::AuthRunmode - interrupt runmode by login transparently
         $self->authrm_config({
             'driver' => [
                 {
-                    'module' => 'Generic',
+                    'module' => 'OpenID',
                     'params' => {
-                        'valid_user'        => 'user',
-                        'valid_password'    => 'pass',
-                        },
-                   },
-                ],
-            'expire' => '+1h',
+                        'required_root' => qq(http://$ENV{HTTP_HOST}/),
+                         },
+                    },
+                ]
             });
     }
     
@@ -277,9 +275,7 @@ Perl のバージョンは最低で 5.8.1 を要求します。
     use 5.8.1;
 
 そして、現在のバージョンでは、次のモジュールを必要としています。
-いずれもコンパイル不要なので、レンタル・サーバなどでシェルが使えない環境でも利用できます。
 
-    use Class::Data::Inheritable;
     use CGI::Application;
     use CGI::Application::Plugin::Forward;
     use CGI::Application::Plugin::LogDispatch;
@@ -288,10 +284,13 @@ Perl のバージョンは最低で 5.8.1 を要求します。
     use CGI::Application::Plugin::TT;
     use UNIVERSAL::require;
 
-ドライバ OpenID を利用する場合は、次のモジュールを必要とします。
+それから、ドライバ OpenID を利用する場合は、次のモジュールを必要とします。
 
     use Net::OpenID::Consumer;
     use LWP::UserAgent;
+
+なお OpenID を扱うときには、 LWP::UserAgent の替わりに LWPx::ParanoidAgent を用いる事が推奨されています。
+このモジュールでは必須ではありませんが、 LWPx::ParanoidAgent のほうが良いと思います。
 
 =head1 SEE ALSO
 
