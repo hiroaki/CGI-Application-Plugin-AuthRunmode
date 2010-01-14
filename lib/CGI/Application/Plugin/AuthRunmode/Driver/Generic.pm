@@ -1,4 +1,4 @@
-package CGI::Application::Plugin::AuthRunmode::Generic;
+package CGI::Application::Plugin::AuthRunmode::Driver::Generic;
 
 # $Id $
 

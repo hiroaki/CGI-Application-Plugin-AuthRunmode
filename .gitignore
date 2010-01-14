@@ -1,0 +1,9 @@
+.*
+Makefile.old
+META.yml
+pm_to_blib
+blib
+CGI-Application-Plugin-AuthRunmode-0.01.tar.gz
+Makefile
+!.gitignore
+

@@ -1,4 +1,4 @@
-package CGI::Application::Plugin::AuthRunmode::OpenID;
+package CGI::Application::Plugin::AuthRunmode::Driver::OpenID;
 
 # Id: #
 

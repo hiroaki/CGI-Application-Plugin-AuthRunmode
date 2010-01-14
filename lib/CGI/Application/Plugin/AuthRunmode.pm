@@ -36,7 +36,7 @@ sub authrm_config {
         my $params = $driver->{'params'};
 
         if( $module !~ /::/ ){
-            $module = "CGI::Application::Plugin::AuthRunmode::$module";
+            $module = "CGI::Application::Plugin::AuthRunmode::Driver::$module";
             $driver->{'module'} = $module; # restore as fullname
         }
         $module->require

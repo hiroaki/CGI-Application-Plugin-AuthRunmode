@@ -5,7 +5,6 @@ use warnings;
 use vars qw($VERSION);
 $VERSION = '0.01';
 
-use CGI::Application::Plugin::AuthRunmode::Status;
 use Scalar::Util;
 
 sub new {
