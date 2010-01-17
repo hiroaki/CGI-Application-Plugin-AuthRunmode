@@ -158,7 +158,9 @@ sub _handler_prerun {
         $app->authrm->_clear_suspending;
     }else{
         if( $app->authrm->is_logged_in ){
-            $app->authrm->_resume_runmode;
+            if( $app->authrm->suspending_runmode ){
+                $app->authrm->_resume_runmode;
+            }
             $app->authrm->_clear_suspending;
         }else{
             $app->log->debug("in protected runmode [$rm], then it requires login");
