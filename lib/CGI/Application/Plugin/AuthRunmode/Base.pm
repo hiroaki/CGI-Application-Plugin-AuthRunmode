@@ -217,11 +217,8 @@ sub rm_login {
 
 sub rm_logout {
     my $app = shift;
-    my $message = shift;
-    $app->log->debug("delete session");
-    $app->session_delete;
-    $app->session->flush;
-    $app->tt_process( $app->authrm->get_logout_template, {'message' => $message});
+    $app->authrm->logging_out;
+    $app->tt_process( $app->authrm->get_logout_template );
 }
 
 sub suspend_runmode {
@@ -282,6 +279,13 @@ sub logging_in {
     $self->app->session->flush;
 
     $self->app->call_hook('authrm::logging_in', $authobj, $user_id, @extra_args );
+}
+
+sub logging_out {
+    my $self = shift;
+    $self->app->log->debug("delete session");
+    $self->app->session_delete;
+    $self->app->session->flush;
 }
 
 sub is_logged_in {
