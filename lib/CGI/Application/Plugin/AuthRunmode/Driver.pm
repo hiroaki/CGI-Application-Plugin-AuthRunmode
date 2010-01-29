@@ -6,6 +6,11 @@ use vars qw($VERSION);
 $VERSION = '0.01';
 
 use Scalar::Util;
+use base qw(Class::Data::Inheritable);
+
+__PACKAGE__->mk_classdata('DefaultParamNames');
+__PACKAGE__->DefaultParamNames({
+});
 
 sub new {
     my $class   = shift;
@@ -34,6 +39,37 @@ sub params {
 sub authenticate {
     my $self = shift;
     die "not implemented";
+}
+
+sub get_default_param_name {
+    my $self = shift;
+    my $id   = shift;
+    return $self->DefaultParamNames->{$id};
+}
+
+sub fields_spec {
+    my $self = shift;
+    return ();
+}
+
+sub get_param_name {
+    my $self = shift;
+    my $id   = shift;
+    return $self->params->{$id} || $self->get_default_param_name($id);
+}
+
+sub get_and_clear_param {
+    my $self    = shift;
+    my $key     = shift;
+    my $authrm  = $self->authrm;
+    my $name    = $self->get_param_name($key);
+
+    my $val = $authrm->app->query->param($name);
+
+    $authrm->app->log->debug("delete query param [$name]");
+    $authrm->app->query->delete($name);
+
+    return $val;
 }
 
 1;

@@ -11,50 +11,87 @@ use base qw(CGI::Application::Plugin::AuthRunmode::Driver);
 use CGI::Application::Plugin::AuthRunmode::Status;
 use Apache::Htpasswd;
 
+__PACKAGE__->DefaultParamNames({
+    'param_name_userid' => 'authrm_userid_htpasswd',
+    'param_name_passwd' => 'authrm_passwd_htpasswd',
+    'param_name_submit' => 'authrm_submit_htpasswd',
+    });
+
+sub fields_spec {
+    my $self = shift;
+
+    my @field_spec = (  # see also CGI.pm
+        {
+            'label' => 'user',
+            'type'  => 'textfield',
+            'attr'  => {
+                -name => $self->get_param_name('param_name_userid'),
+                },
+            },
+        {
+            'label' => 'password',
+            'type'  => 'password_field',
+            'attr'  => {
+                -name => $self->get_param_name('param_name_passwd'),
+                },
+            },
+        {
+            'label' => '',
+            'type'  => 'submit',
+            'attr'  => {
+                -name => $self->get_param_name('param_name_submit'),
+                -value => 'login',
+                },
+            },
+    );
+    
+    return @field_spec;
+}
+
 sub authenticate {
-    my $self            = shift;
-    my $authrm          = $self->authrm;
-    my $driver_params   = $self->params;
+    my $self    = shift;
+    my $authrm  = $self->authrm;
 
-    my $param_name_user = $driver_params->{'param_name_username'} || 'authrm_username';
-    my $param_name_pswd = $driver_params->{'param_name_password'} || 'authrm_password';
+    my $input_user = $self->get_and_clear_param('param_name_userid');
+    my $input_pswd = $self->get_and_clear_param('param_name_passwd');
+    my $input_sbmt = $self->get_and_clear_param('param_name_submit');
 
-    my $input_user = $authrm->app->query->param($param_name_user);
-    my $input_pswd = $authrm->app->query->param($param_name_pswd);
+    if( ! $input_user and ! $input_pswd ){
 
-    my $cleanup = sub {
-        $authrm->app->log->info("delete query params [$param_name_pswd, $param_name_user]");
-        $authrm->app->query->delete($param_name_pswd, $param_name_user);
-    };
+        $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('401'));
+        return;
 
-    my $files = $driver_params->{'files'};
-    if( ref $files ne 'ARRAY' ){
-        $files = [$files];
-    }
-    die "The HTPasswd driver requires at least one htpasswd file"
-        unless $files;
+    }else{
+        my $driver_params = $self->params;
 
-    for my $file ( @$files ){
-
-        $authrm->app->log->debug("passwd file - $file");
-        my $htpasswd = Apache::Htpasswd->new({
-                'passwdFile' => $file,
-                'ReadOnly'   => 1,
-                });
-        if( $htpasswd->htCheckPassword( $input_user, $input_pswd ) ){
-            $authrm->app->log->info("login success as [$input_user]");
-            $authrm->logging_in( $self, $input_user, $htpasswd );
-            $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('200'));
-            # 
-            last;
-        }else{
-            $authrm->app->log->info("login failed as [".(defined $input_user ? $input_user : 'undef')."]");
-            $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('403'));
+        my $files = $driver_params->{'files'};
+        if( ref $files ne 'ARRAY' ){
+            $files = [$files];
         }
-    }
+        die "The HTPasswd driver requires at least one htpasswd file"
+            unless $files;
 
-    $cleanup->();
-    return $authrm;
+        for my $file ( @$files ){
+
+            $authrm->app->log->debug("passwd file - $file");
+            my $htpasswd = Apache::Htpasswd->new({
+                    'passwdFile' => $file,
+                    'ReadOnly'   => 1,
+                    });
+            if( $htpasswd->htCheckPassword( $input_user, $input_pswd ) ){
+                $authrm->app->log->info("login success as [$input_user]");
+                $authrm->logging_in( $self, $input_user, $htpasswd );
+                $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('200'));
+                # 
+                last;
+            }else{
+                $authrm->app->log->info("login failed as [".(defined $input_user ? $input_user : 'undef')."]");
+                $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('403'));
+            }
+        }
+
+        return $authrm;
+    }
 }
 
 1;
@@ -77,11 +114,11 @@ CGI::Application::Plugin::AuthRunmode::Driver::HTPasswd - an authentication driv
 
 =head1 DESCRIPTION
 
-TODO
+This driver provides authentication by using htpasswd files.
 
 =head Callback Parameter
 
-The parameter passed to callback "authrm::logging_in" called when log in succeeds is Apache::HTPasswd object. 
+The parameter passed to callback "authrm::logging_in" called when login succeeds:
 
     $self->add_callback('authrm::logging_in', sub {
         my $app     = shift;    # CGI::Application

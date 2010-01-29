@@ -12,6 +12,11 @@ use CGI::Application::Plugin::AuthRunmode::Status;
 use Net::OpenID::Consumer;
 use UNIVERSAL::require;
 
+__PACKAGE__->DefaultParamNames({
+    'param_name_userid' => 'authrm_userid_openid',
+    'param_name_submit' => 'authrm_submit_openid',
+    });
+
 sub new {
     my $class = shift;
     my $self = $class->SUPER::new(@_);
@@ -19,22 +24,44 @@ sub new {
     return $self;
 }
 
+sub fields_spec {
+    my $self = shift;
+
+    my @field_spec = (  # see also CGI.pm
+        {
+            'label' => 'openid',
+            'type'  => 'textfield',
+            'attr'  => {
+                -name => $self->get_param_name('param_name_userid'),
+                },
+            },
+        {
+            'label' => '',
+            'type'  => 'submit',
+            'attr'  => {
+                -name => $self->get_param_name('param_name_submit'),
+                -value => 'login',
+                },
+            },
+    );
+    
+    return @field_spec;
+}
+
 sub authenticate {
     my $self            = shift;
     my $authrm          = $self->authrm;
-    my $driver_params   = $self->params;
-    my $param_name      = $driver_params->{'param_name'} || 'openid_url';
 
-    my $openid_url = $authrm->app->query->param( $param_name );
-    $authrm->app->log->debug("delete query params [$param_name]");
-    $authrm->app->query->delete($param_name);
-
-    if( ! $openid_url and ! $authrm->app->query->param('openid.mode') ){
+    my $input_user = $self->get_and_clear_param('param_name_userid');
+    my $input_sbmt = $self->get_and_clear_param('param_name_submit');
+    
+    if( ! $input_user and ! $authrm->app->query->param('openid.mode') ){
 
         $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('401'));
         return;
 
     }else{
+        my $driver_params = $self->params;
 
         my $ua_module = 'LWP::UserAgent';
         my $ua_params = {};
@@ -52,9 +79,9 @@ sub authenticate {
         $authrm->app->call_hook('authrm::driver::openid::setup_consumer', $csr );
         $authrm->app->log->debug("Net::OpenID::Consumer has UA: ${\$csr->ua}");
 
-        if( $openid_url ){
+        if( $input_user ){
     
-            if( my $claimed_identity = $csr->claimed_identity( $openid_url ) ){
+            if( my $claimed_identity = $csr->claimed_identity( $input_user ) ){
 
                 if( exists $driver_params->{'extension_args'} ){
                     $authrm->app->log->debug("set extension args: [@{ $driver_params->{'extension_args'} }]");
@@ -70,7 +97,7 @@ sub authenticate {
                 $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('303'));
                 return $check_url;
             }else{
-                $authrm->app->log->notice("it is not an OpenID provider [$openid_url]");
+                $authrm->app->log->notice("it is not an OpenID provider [$input_user]");
                 $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('400'));
                 return $authrm;
             }

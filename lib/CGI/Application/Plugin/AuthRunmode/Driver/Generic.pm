@@ -10,23 +10,57 @@ $VERSION = '0.01';
 use CGI::Application::Plugin::AuthRunmode::Status;
 use base qw(CGI::Application::Plugin::AuthRunmode::Driver);
 
-sub authenticate {
+__PACKAGE__->DefaultParamNames({
+    'param_name_userid' => 'authrm_userid_generic',
+    'param_name_passwd' => 'authrm_passwd_generic',
+    'param_name_submit' => 'authrm_submit_generic',
+    });
+
+sub fields_spec {
     my $self = shift;
-    my $authrm          = $self->authrm;
-    my $driver_params   = $self->params;
 
-    my $param_name_user = $driver_params->{'param_name_username'} || 'authrm_username';
-    my $param_name_pswd = $driver_params->{'param_name_password'} || 'authrm_password';
+    my @field_spec = (  # see also CGI.pm
+        {
+            'label' => 'user',
+            'type'  => 'textfield',
+            'attr'  => {
+                -name => $self->get_param_name('param_name_userid'),
+                },
+            },
+        {
+            'label' => 'password',
+            'type'  => 'password_field',
+            'attr'  => {
+                -name => $self->get_param_name('param_name_passwd'),
+                },
+            },
+        {
+            'label' => '',
+            'type'  => 'submit',
+            'attr'  => {
+                -name => $self->get_param_name('param_name_submit'),
+                -value => 'login',
+                },
+            },
+    );
+    return @field_spec;
+}
 
-    my $input_user = $authrm->app->query->param($param_name_user);
-    my $input_pswd = $authrm->app->query->param($param_name_pswd);
+sub authenticate {
+    my $self    = shift;
+    my $authrm  = $self->authrm;
 
-    if( ( ! $authrm->app->query->param )
-     or ( ! $input_user and ! $input_pswd )
-    ){
+    my $input_user = $self->get_and_clear_param('param_name_userid');
+    my $input_pswd = $self->get_and_clear_param('param_name_passwd');
+    my $input_sbmt = $self->get_and_clear_param('param_name_submit');
+
+    if( ! $input_user and ! $input_pswd ){
+
         $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('401'));
         return;
+
     }else{
+        my $driver_params = $self->params;
 
         if( $input_user and $input_pswd 
         and $input_user eq $driver_params->{'valid_user'}
@@ -40,8 +74,6 @@ sub authenticate {
             $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('403'));
         }
 
-        $authrm->app->log->info("delete query params [$param_name_pswd, $param_name_user]");
-        $authrm->app->query->delete($param_name_pswd, $param_name_user);
         return $authrm;
     }
 }

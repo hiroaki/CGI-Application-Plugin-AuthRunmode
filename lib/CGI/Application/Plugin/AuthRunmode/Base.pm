@@ -15,8 +15,6 @@ our %Const = (
     'default_default_runmode'   => 'default',
     'default_login_runmode'     => 'login',
     'default_logout_runmode'    => 'logout',
-    'default_login_template'    => 'login.tmpl',
-    'default_logout_template'   => 'logout.tmpl',
     'param_suspending_runmode'  => '_suspending_runmode',
     'param_suspending_query'    => '_suspending_query',
     'param_suspending_method'   => '_suspending_method',
@@ -34,6 +32,10 @@ sub new {
         'args'      => $args,
         'status'    => undef, # authenticate retuns
         'drivers'   => [],
+        'render_login'
+                    => '_default_render_login', # method name or CODE
+        'render_logout'
+                    => '_default_render_logout', # method name or CODE
         'protected_runmodes'
                     => [],
         };
@@ -54,10 +56,6 @@ sub new {
     }
     $self->drivers(\@drivers);
 
-    # set default
-    $self->args->{'login_template'} ||= $Const{'default_login_template'};
-    $self->args->{'logout_template'}||= $Const{'default_logout_template'};
-
     # reservation rm
     $self->args->{'login_runmode'}  ||= $Const{'default_login_runmode'};
     $self->args->{'logout_runmode'} ||= $Const{'default_logout_runmode'};
@@ -65,7 +63,7 @@ sub new {
         "@{[$self->get_login_runmode]}"   => \&rm_login,
         "@{[$self->get_logout_runmode]}"  => \&rm_logout,
         );
-    # the login runmode needs protect
+    # the login runmode needs protection
     $self->add_protected_runmode($self->get_login_runmode);
 
     # generic rm
@@ -73,6 +71,10 @@ sub new {
 
     # hook prerun
     $self->app->add_callback('prerun', \&_handler_prerun );
+
+    if( $self->args->{'render_login'} ){
+        $self->render_login($self->args->{'render_login'});
+    }
 
     return $self;
 }
@@ -95,6 +97,16 @@ sub status {
 sub drivers {
     my $self = shift;
     return @_ ? $self->{'drivers'} = shift : $self->{'drivers'};
+}
+
+sub render_login {
+    my $self = shift;
+    return @_ ? $self->{'render_login'} = shift : $self->{'render_login'};
+}
+
+sub render_logout {
+    my $self = shift;
+    return @_ ? $self->{'render_logout'} = shift : $self->{'render_logout'};
 }
 
 sub protected_runmodes {
@@ -141,14 +153,6 @@ sub get_logout_runmode {
     shift->args->{'logout_runmode'};
 }
 
-sub get_login_template {
-    shift->args->{'login_template'};
-}
-
-sub get_logout_template {
-    shift->args->{'logout_template'};
-}
-
 sub _handler_prerun {
     my $app = shift;
 
@@ -179,8 +183,60 @@ sub _handler_prerun {
             }
         }
     }
+    $app->log->debug("set prerun_mode [$prerun_mode]");
     $app->prerun_mode($prerun_mode);
     return $app;
+}
+
+sub output_login {
+    my $self = shift;
+    if( ref $self->render_login eq 'CODE' ){
+        return $self->render_login->();
+    }else{
+        return $self->${\$self->render_login}();
+    }
+}
+
+sub output_logout {
+    my $self = shift;
+    if( ref $self->render_logout eq 'CODE' ){
+        return $self->render_logout->();
+    }else{
+        return $self->${\$self->render_logout}();
+    }
+}
+
+sub _default_render_login {
+    my $self = shift;
+
+    my $html = $self->app->query->start_html(-title=>'Login');
+    $html .= $self->app->query->h1("Login");
+    
+    for my $driver ( @{ $self->drivers } ){
+        my $fname = ref $driver;
+        $fname =~ s/::/_/g;
+        $html .= $self->app->query->start_form(
+                    -name   => $fname,
+                    -method => 'POST',
+                    -action => $self->app->query->url(-path=>1),
+                    );
+        for ( $driver->fields_spec ){
+            $html .= $self->app->query->div($_->{'label'} . $self->app->query->${\$_->{'type'}}(%{$_->{'attr'}}));
+        }
+        $html .= $self->app->query->endform;
+    }
+
+    $html .= $self->app->query->end_html;
+    return $html;
+}
+
+sub _default_render_logout {
+    my $self = shift;
+
+    my $html = $self->app->query->start_html(-title=>'Logout');
+    $html .= $self->app->query->h1("Logout");
+    $html .= $self->app->query->end_html;
+    return $html;
 }
 
 sub rm_login {
@@ -189,11 +245,12 @@ sub rm_login {
     my $result = undef;
     for my $driver ( @{ $app->authrm->drivers } ){
         $result = $driver->authenticate;
+        $app->log->debug("trying driver [$driver], result [".(defined $result ? $result : 'undef')."]");
         last if( $result );
     }
 
     unless( $result ){
-        return $app->tt_process( $app->authrm->get_login_template );
+        return $app->authrm->output_login;
     }else{
         if( Scalar::Util::blessed( $result ) and $result->isa(__PACKAGE__) ){
             if( $result->status->is_success ){
@@ -207,7 +264,7 @@ sub rm_login {
                 return;
             }else{
                 $app->authrm->_increment_login_attempts;
-                return $app->tt_process( $app->authrm->get_login_template );
+                return $app->authrm->output_login;
             }
         }else{
             return $app->redirect($result);
@@ -218,7 +275,7 @@ sub rm_login {
 sub rm_logout {
     my $app = shift;
     $app->authrm->logging_out;
-    $app->tt_process( $app->authrm->get_logout_template );
+    return $app->authrm->output_logout;
 }
 
 sub suspend_runmode {
@@ -330,3 +387,37 @@ sub _clear_login_attempts {
 }
 
 1;
+
+=head1 NAME
+
+CGI::Application::Plugin::AuthRunmode::Base - basic controller for AuthRunmode
+
+=head1 SYNOPSIS
+
+    CGI::Application::Plugin::AuthRunmode::Base->new( $cgi_application, {
+        'driver' => {
+            'module' => 'HTPasswd',
+            'params' => {
+                'files' => [qw(/etc/htpasswd)],
+                }
+            }
+        });
+
+=head1 DESCRIPTION
+
+TODO
+
+=head1 SEE ALSO
+
+L<CGI::Application::Plugin::AuthRunmode>
+
+=head1 AUTHOR
+
+WATANABE Hiroaki, E<lt>hwat@mac.comE<gt>
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
