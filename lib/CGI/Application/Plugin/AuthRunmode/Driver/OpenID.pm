@@ -89,6 +89,8 @@ sub authenticate {
                 }
 
                 my $check_url = $claimed_identity->check_url(
+                                    # see Net::OpenID::ClaimedIdentity for details
+                                    'delayed_return' => 1,
                                     'return_to'  => $authrm->app->query->url(-path_info=>1,-query=>1),
                                     'trust_root' => $authrm->app->query->url(-path_info=>1),
                                     );
@@ -98,6 +100,7 @@ sub authenticate {
                 return $check_url;
             }else{
                 $authrm->app->log->notice("it is not an OpenID provider [$input_user]");
+                $authrm->app->log->notice("csr error code: ". (defined $csr->errcode ? $csr->errcode : 'undef'));
                 $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('400'));
                 return $authrm;
             }
