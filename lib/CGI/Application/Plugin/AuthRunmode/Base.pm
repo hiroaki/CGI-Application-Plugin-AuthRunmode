@@ -163,7 +163,7 @@ sub _handler_prerun {
     }else{
         if( $app->authrm->is_logged_in ){
             if( $app->authrm->suspending_runmode ){
-                $app->authrm->_resume_runmode;
+                $prerun_mode = $app->authrm->_resume_runmode;
             }
             $app->authrm->_clear_suspending;
         }else{
@@ -306,11 +306,11 @@ sub _resume_runmode {
     $ENV{'REQUEST_METHOD'} = $self->app->session->param($Const{'param_suspending_method'} );
 
     if( ! defined $back_to or $back_to eq $self->get_login_runmode ){
-        $self->app->log->info("change rm from 'login' to 'default' because direct access to 'login'");
+        $self->app->log->info("change rm from '${\$self->get_login_runmode}' to '${\$self->get_default_runmode}' because direct access to 'login'");
         $back_to = $self->get_default_runmode;
     }
-    $self->app->log->debug("forwads to resumed run mode [$back_to]");
-    return $self->app->forward( $back_to );
+    $self->app->log->debug("resumed run mode [$back_to]");
+    return $back_to;
 }
 
 sub _clear_suspending {
