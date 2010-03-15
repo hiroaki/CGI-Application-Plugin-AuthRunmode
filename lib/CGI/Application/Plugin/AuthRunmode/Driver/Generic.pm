@@ -79,3 +79,50 @@ sub authenticate {
 }
 
 1;
+
+=head1 NAME
+
+CGI::Application::Plugin::AuthRunmode::Driver::Generic - an authentication driver for AuthRunmode
+
+=head1 SYNOPSIS
+
+    # setup
+    authrm:
+      driver:
+        -
+          module: Generic
+          params:
+            valid_user: username
+            valid_password: password
+
+=head1 DESCRIPTION
+
+This driver provides authentication for AuthRunmode.
+
+The user\'s input strings are matched with the plain text recorded in the configuration parameter.
+
+=head Callback Parameter
+
+The parameter passed to callback "authrm::logging_in" called when login succeeds:
+
+    $self->add_callback('authrm::logging_in', sub {
+        my $app     = shift;    # CGI::Application
+        my $driver  = shift;    # CGI::Application::Plugin::AuthRunmode::Driver
+        my $user    = shift;    # input user name
+        my $extra   = shift;    # same as $user
+
+=head1 SEE ALSO
+
+L<CGI::Application::Plugin::AuthRunmode>
+L<CGI::Application::Plugin::AuthRunmode::Driver>
+
+=head1 AUTHOR
+
+WATANABE Hiroaki, E<lt>hwat@mac.comE<gt>
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut

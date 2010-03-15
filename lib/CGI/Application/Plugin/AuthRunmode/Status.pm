@@ -106,3 +106,36 @@ sub is_server_error {
 }
 
 1;
+
+=head1 NAME
+
+CGI::Application::Plugin::AuthRunmode::Status - status of result for AuthRunmode
+
+=head1 SYNOPSIS
+
+    $authrm->status(
+        CGI::Application::Plugin::AuthRunmode::Status->new('401')
+        );
+
+=head1 DESCRIPTION
+
+TODO
+
+It does not relate though it refers to HTTP status codes. 
+
+=head1 SEE ALSO
+
+L<CGI::Application::Plugin::AuthRunmode>
+L<CGI::Application::Plugin::AuthRunmode::Driver>
+L<HTTP::Status>
+
+=head1 AUTHOR
+
+WATANABE Hiroaki, E<lt>hwat@mac.comE<gt>
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut

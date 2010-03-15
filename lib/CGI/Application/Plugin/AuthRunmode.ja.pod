@@ -293,13 +293,14 @@ Perl のバージョンは最低で 5.8.1 を要求します。
 
     use 5.8.1;
 
-そして次のモジュールを必要とします。
+コアモジュール以外では、次のモジュールを必要とします。
 
     use CGI::Application;
     use CGI::Application::Plugin::Forward;
     use CGI::Application::Plugin::LogDispatch;
     use CGI::Application::Plugin::Redirect;
     use CGI::Application::Plugin::Session;
+    use Class::Data::Inheritable;
     use UNIVERSAL::require;
 
 ドライバ HTPasswd を利用する場合は、次のモジュールを必要とします。

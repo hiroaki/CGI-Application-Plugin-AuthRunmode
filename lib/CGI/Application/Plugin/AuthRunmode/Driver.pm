@@ -73,3 +73,77 @@ sub get_and_clear_param {
 }
 
 1;
+
+=head1 NAME
+
+CGI::Application::Plugin::AuthRunmode::Driver - base driver for AuthRunmode
+
+=head1 SYNOPSIS
+
+    package CGI::Application::Plugin::AuthRunmode::Driver::FooBar;
+
+    use base qw(CGI::Application::Plugin::AuthRunmode::Driver);
+
+    __PACKAGE__->DefaultParamNames({
+        'param_name_userid' => 'authrm_userid_generic',
+        'param_name_passwd' => 'authrm_passwd_generic',
+        'param_name_submit' => 'authrm_submit_generic',
+        });
+
+    sub fields_spec {
+        # implements
+    }
+    
+    sub authenticate {
+        # implements
+    }
+
+=head1 DESCRIPTION
+
+TODO
+
+=head1 Return Value
+
+There are three types of return values of authenticate().
+
+=over4
+
+=item object - CGI::Application::Plugin::AuthRunmode
+
+If autenticate() returns the object of CGI::Application::Plugin::AuthRunmode,
+this means that a proof of success or failure.
+Those differences are entrusted to the status object.
+
+And you have to set status to 2xx number as success, or 4xx as failure.
+
+=item undef
+
+The undef is a sign of the failure.
+However, it is especially shown that this authentic method was not used.
+
+And you also have to set status to 401 (Authenticate required) number.
+
+=item scalar
+
+The scalar value is used as redirecting URL.
+And you can set 3xx.
+
+The URL will be printed with redirect header, as the result of run mode.
+
+=back
+
+=head1 SEE ALSO
+
+L<CGI::Application::Plugin::AuthRunmode>
+L<CGI::Application::Plugin::AuthRunmode::Status>
+
+=head1 AUTHOR
+
+WATANABE Hiroaki, E<lt>hwat@mac.comE<gt>
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut

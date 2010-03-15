@@ -153,3 +153,57 @@ sub authenticate {
 }
 
 1;
+
+=head1 NAME
+
+CGI::Application::Plugin::AuthRunmode::Driver::OpenID - an authentication driver for AuthRunmode
+
+=head1 SYNOPSIS
+
+    # setup
+    authrm:
+      driver:
+        -
+          module: OpenID
+          params:
+            consumer_secret: "secret..."
+            required_root: http://$ENV{HTTP_HOST}/
+
+    # optional params:
+            extension_args:
+              - http://openid.net/extensions/sreg/1.1
+              -
+                optional: nickname
+
+=head1 DESCRIPTION
+
+TODO
+
+This driver provides authentication by using OpenID mechanism.
+
+=head Callback Parameter
+
+The parameter passed to callback "authrm::logging_in" called when login succeeds:
+
+    $self->add_callback('authrm::logging_in', sub {
+        my $app     = shift;    # CGI::Application
+        my $driver  = shift;    # CGI::Application::Plugin::AuthRunmode::Driver
+        my $user    = shift;    # verified identity url (result of $extra->url() )
+        my $extra   = shift;    # verified Net::OpenID::VerifiedIdentity object
+
+=head1 SEE ALSO
+
+L<CGI::Application::Plugin::AuthRunmode>
+L<CGI::Application::Plugin::AuthRunmode::Driver>
+L<Net::OpenID::Consumer>
+
+=head1 AUTHOR
+
+WATANABE Hiroaki, E<lt>hwat@mac.comE<gt>
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut

@@ -54,3 +54,65 @@ sub authrm_config {
 }
 
 1;
+
+=head1 NAME
+
+CGI::Application::Plugin::AuthRunmode - interrupt runmode by login transparently
+
+=head1 SYNOPSIS
+
+    use base qw(CGI::Application);
+    use CGI::Application::Plugin::AuthRunmode;
+    use CGI::Application::Plugin::Forward;
+    use CGI::Application::Plugin::LogDispatch;
+    use CGI::Application::Plugin::Redirect;
+    use CGI::Application::Plugin::Session;
+    
+    sub cgiapp_init {
+        my $self = shift;
+
+        $self->authrm_config({
+            'driver' => [
+                {
+                    'module' => 'OpenID',
+                    'params' => {
+                        'required_root' => qq(http://$ENV{HTTP_HOST}/),
+                         },
+                    },
+                ]
+            });
+    }
+    
+    sub setup {
+        my $self = shift;
+        $self->start_mode('default');
+        $self->run_modes(
+            'default'   => \&rm_default,
+            'admin'     => \&rm_admin,
+            );
+        $self->authrm->add_protected_runmode(
+            'admin'
+            );
+    }
+
+=head1 DESCRIPTION
+
+TODO
+
+=head1 SEE ALSO
+
+L<CGI::Application>
+L<CGI::Application::Plugin::AuthRunmode::Base>
+L<CGI::Application::Plugin::AuthRunmode::Driver>
+L<CGI::Application::Plugin::AuthRunmode::Status>
+
+=head1 AUTHOR
+
+WATANABE Hiroaki, E<lt>hwat@mac.comE<gt>
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
