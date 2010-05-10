@@ -65,19 +65,31 @@ sub authenticate {
 
         my $ua_module = 'LWP::UserAgent';
         my $ua_params = {};
-        if( exists $driver_params->{'agent'} and exists $driver_params->{'agent'} ){
+        if( exists $driver_params->{'agent'} ){
             $ua_module = $driver_params->{'agent'}->{'module'};
             $ua_params = $driver_params->{'agent'}->{'params'} || {};
         }
         my $ua = $ua_module->new( %$ua_params );
+        
+        my $cache_module = undef;
+        my $cache_params = {};
+        if( exists $driver_params->{'cache'} ){
+            $cache_module = $driver_params->{'cache'}->{'module'};
+            $cache_params = $driver_params->{'cache'}->{'params'} || {};
+        }
+       
         my $csr = Net::OpenID::Consumer->new(
             'ua'                => $ua,
             'args'              => $authrm->app->query,
             'consumer_secret'   => $driver_params->{'consumer_secret'},
             'required_root'     => $driver_params->{'required_root'},
             );
+        $csr->cache( $cache_module->new( $cache_params ) ) if( $cache_module );
+
         $authrm->app->call_hook('authrm::driver::openid::setup_consumer', $csr );
-        $authrm->app->log->debug("Net::OpenID::Consumer has UA: ${\$csr->ua}");
+
+        $authrm->app->log->debug("ua - Net::OpenID::Consumer using: ${\$csr->ua}");
+        $authrm->app->log->debug("cache - Net::OpenID::Consumer using: ".($csr->cache ? "${\$csr->cache}":'undef'));
 
         if( $input_user ){
     
