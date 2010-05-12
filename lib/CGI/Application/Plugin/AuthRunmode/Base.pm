@@ -23,6 +23,38 @@ our %Const = (
     'param_auth_attempts'       => 'AUTHRM_ATTEMPTS',
     );
 
+our $DEBUG = 0;
+my %available_logger = (
+    'debug'     => 1,
+    'info'      => 1,
+    'notice'    => 1,
+    'warning'   => 1,
+    'warn'      => 1,
+    'error'     => 1,
+    'err'       => 1,
+    'critical'  => 1,
+    'crit'      => 1,
+    'alert'     => 1,
+    'emergency' => 1,
+    'emerg'     => 1,
+    );
+sub DESTROY {}
+sub AUTOLOAD{
+    my $self = shift;
+    my $method = our $AUTOLOAD;
+    $method =~ s/.*:://o;
+    if( ref $self->app->log and $self->app->log->can($method) ){
+        $self->app->log->$method(@_);
+    }elsif( $available_logger{$method} ){
+        if( $DEBUG ){
+            printf STDERR '[%s] %s%s', "$method", "@_", "\n";
+        }
+    }else{
+        Carp::croak("Undefined subroutine $AUTOLOAD called");
+    }
+}
+sub log { $_[0] }
+
 sub new {
     my $class   = shift;
     my $app     = shift;
@@ -46,7 +78,7 @@ sub new {
     my @drivers = ();
     my @auth_drivers = @{ $self->args->{'driver'} };
     unless( @auth_drivers ){
-        $self->app->log->critical("no driver");
+        $self->log->critical("no driver");
         croak "no driver";
     }
     for my $driver ( @auth_drivers ){
@@ -124,7 +156,7 @@ sub add_protected_runmode {
             push @$pm, $mode;
         }
     }
-    $self->app->log->debug("protected runmode [@$pm]");
+    $self->log->debug("protected runmode [@$pm]");
     $self->protected_runmodes($pm);
 }
 
@@ -167,23 +199,23 @@ sub _handler_prerun {
             }
             $app->authrm->_clear_suspending;
         }else{
-            $app->log->debug("in protected runmode [$rm], then it requires login");
+            $app->authrm->log->debug("in protected runmode [$rm], then it requires login");
     
             if( $app->authrm->args->{'deny_direct_login_runmode'} and $app->session->is_new ){
-                $app->log->info("change rm to 'default' because 'login' does not allow to direct access, or session reaches timeout");
+                $app->authrm->log->info("change rm to 'default' because 'login' does not allow to direct access, or session reaches timeout");
                 $prerun_mode = $app->authrm->get_default_runmode;
             }else{
                 if( $app->authrm->suspending_runmode ){
-                    $app->log->debug("rm [".$app->authrm->suspending_runmode."] was suspending");
+                    $app->authrm->log->debug("rm [".$app->authrm->suspending_runmode."] was suspending");
                 }else{
                     $app->authrm->suspend_runmode;
-                    $app->log->debug("rm [$rm] is suspended");
+                    $app->authrm->log->debug("rm [$rm] is suspended");
                 }
                 $prerun_mode = $app->authrm->get_login_runmode;
             }
         }
     }
-    $app->log->debug("set prerun_mode [$prerun_mode]");
+    $app->authrm->log->debug("set prerun_mode [$prerun_mode]");
     $app->prerun_mode($prerun_mode);
     return $app;
 }
@@ -245,7 +277,7 @@ sub rm_login {
     my $result = undef;
     for my $driver ( @{ $app->authrm->drivers } ){
         $result = $driver->authenticate;
-        $app->log->debug("trying driver [$driver], result [".(defined $result ? $result : 'undef')."]");
+        $app->authrm->log->debug("trying driver [$driver], result [".(defined $result ? $result : 'undef')."]");
         last if( $result );
     }
 
@@ -300,16 +332,16 @@ sub suspending_method {
 sub _resume_runmode {
     my $self = shift;
 
-    $self->app->log->debug("resume rm, query and REQUEST_METHOD");
+    $self->log->debug("resume rm, query and REQUEST_METHOD");
     my $back_to            = $self->app->session->param($Const{'param_suspending_runmode'});
     $self->app->query(       $self->app->session->param($Const{'param_suspending_query'}  ));
     $ENV{'REQUEST_METHOD'} = $self->app->session->param($Const{'param_suspending_method'} );
 
     if( ! defined $back_to or $back_to eq $self->get_login_runmode ){
-        $self->app->log->info("change rm from '${\$self->get_login_runmode}' to '${\$self->get_default_runmode}' because direct access to 'login'");
+        $self->log->info("change rm from '${\$self->get_login_runmode}' to '${\$self->get_default_runmode}' because direct access to 'login'");
         $back_to = $self->get_default_runmode;
     }
-    $self->app->log->debug("resumed run mode [$back_to]");
+    $self->log->debug("resumed run mode [$back_to]");
     return $back_to;
 }
 
@@ -340,7 +372,7 @@ sub logging_in {
 
 sub logging_out {
     my $self = shift;
-    $self->app->log->debug("delete session");
+    $self->log->debug("delete session");
     $self->app->session_delete;
     $self->app->session->flush;
 }

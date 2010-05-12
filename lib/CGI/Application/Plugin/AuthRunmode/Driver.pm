@@ -66,7 +66,7 @@ sub get_and_clear_param {
 
     my $val = $authrm->app->query->param($name);
 
-    $authrm->app->log->debug("delete query param [$name]");
+    $authrm->log->debug("delete query param [$name]");
     $authrm->app->query->delete($name);
 
     return $val;

@@ -88,15 +88,15 @@ sub authenticate {
 
         $authrm->app->call_hook('authrm::driver::openid::setup_consumer', $csr );
 
-        $authrm->app->log->debug("ua - Net::OpenID::Consumer using: ${\$csr->ua}");
-        $authrm->app->log->debug("cache - Net::OpenID::Consumer using: ".($csr->cache ? "${\$csr->cache}":'undef'));
+        $authrm->log->debug("ua - Net::OpenID::Consumer using: ${\$csr->ua}");
+        $authrm->log->debug("cache - Net::OpenID::Consumer using: ".($csr->cache ? "${\$csr->cache}":'undef'));
 
         if( $input_user ){
     
             if( my $claimed_identity = $csr->claimed_identity( $input_user ) ){
 
                 if( exists $driver_params->{'extension_args'} ){
-                    $authrm->app->log->debug("set extension args: [@{ $driver_params->{'extension_args'} }]");
+                    $authrm->log->debug("set extension args: [@{ $driver_params->{'extension_args'} }]");
                     $claimed_identity->set_extension_args( @{ $driver_params->{'extension_args'} } );
                 }
 
@@ -106,13 +106,13 @@ sub authenticate {
                                     'return_to'  => $authrm->app->query->url(-path_info=>1,-query=>1),
                                     'trust_root' => $authrm->app->query->url(-path_info=>1),
                                     );
-                $authrm->app->log->notice("redirecting check_url: $check_url");
+                $authrm->log->notice("redirecting check_url: $check_url");
 
                 $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('303'));
                 return $check_url;
             }else{
-                $authrm->app->log->notice("it is not an OpenID provider [$input_user]");
-                $authrm->app->log->notice("csr error code: ". (defined $csr->errcode ? $csr->errcode : 'undef'));
+                $authrm->log->notice("it is not an OpenID provider [$input_user]");
+                $authrm->log->notice("csr error code: ". (defined $csr->errcode ? $csr->errcode : 'undef'));
                 $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('400'));
                 return $authrm;
             }
@@ -122,27 +122,27 @@ sub authenticate {
             my $msg = 'csr handles server response...';
             my $r = $csr->handle_server_response(
                 'not_openid' => sub {
-                        $authrm->app->log->info("$msg not_openid");
+                        $authrm->log->info("$msg not_openid");
 
                         $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('404'));
                         return $authrm;
                     },
                 'setup_required' => sub {
                         my $setup_url = shift;
-                        $authrm->app->log->info("$msg setup_required");
+                        $authrm->log->info("$msg setup_required");
 
                         $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('305'));
                         return $setup_url;
                     },
                 'cancelled' => sub {
-                        $authrm->app->log->info("$msg cancelled");
+                        $authrm->log->info("$msg cancelled");
 
                         $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('407'));
                         return $authrm;
                     },
                 'verified' => sub {
                         my $verified_identity = shift;
-                        $authrm->app->log->info("$msg verified");
+                        $authrm->log->info("$msg verified");
         
                         $authrm->logging_in( $self, $verified_identity->url, $verified_identity );
 
@@ -151,14 +151,14 @@ sub authenticate {
                     },
                 'error' => sub {
                         my $err = shift;
-                        $authrm->app->log->error("$msg error: $err");
+                        $authrm->log->error("$msg error: $err");
 
                         $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('502'));
                         return $authrm;
                     },
                 );
 
-            $authrm->app->log->debug("return $r");
+            $authrm->log->debug("return $r");
             return $r;
         }
     }

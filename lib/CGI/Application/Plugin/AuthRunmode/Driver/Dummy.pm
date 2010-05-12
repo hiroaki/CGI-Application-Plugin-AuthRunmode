@@ -14,7 +14,7 @@ sub authenticate {
     my $self    = shift;
     my $authrm  = $self->authrm;
 
-    $authrm->app->log->info('Dummy driver always makes success in authentication');
+    $authrm->log->info('Dummy driver always makes success in authentication');
 
     $authrm->logging_in( $self, 'Dummy', undef );
     $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('200'));

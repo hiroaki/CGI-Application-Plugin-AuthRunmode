@@ -73,19 +73,19 @@ sub authenticate {
 
         for my $file ( @$files ){
 
-            $authrm->app->log->debug("passwd file - $file");
+            $authrm->log->debug("passwd file - $file");
             my $htpasswd = Apache::Htpasswd->new({
                     'passwdFile' => $file,
                     'ReadOnly'   => 1,
                     });
             if( $htpasswd->htCheckPassword( $input_user, $input_pswd ) ){
-                $authrm->app->log->info("login success as [$input_user]");
+                $authrm->log->info("login success as [$input_user]");
                 $authrm->logging_in( $self, $input_user, $htpasswd );
                 $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('200'));
                 # 
                 last;
             }else{
-                $authrm->app->log->info("login failed as [".(defined $input_user ? $input_user : 'undef')."]");
+                $authrm->log->info("login failed as [".(defined $input_user ? $input_user : 'undef')."]");
                 $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('403'));
             }
         }

@@ -66,11 +66,11 @@ sub authenticate {
         and $input_user eq $driver_params->{'valid_user'}
         and $input_pswd eq $driver_params->{'valid_password'}
         ){
-            $authrm->app->log->info("login success as [$input_user]");
+            $authrm->log->info("login success as [$input_user]");
             $authrm->logging_in( $self, $input_user, $input_user );
             $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('200'));
         }else{
-            $authrm->app->log->info("login failed as [".(defined $input_user ? $input_user : 'undef')."]");
+            $authrm->log->info("login failed as [".(defined $input_user ? $input_user : 'undef')."]");
             $authrm->status(CGI::Application::Plugin::AuthRunmode::Status->new('403'));
         }
 
